@@ -1,16 +1,32 @@
 # Tmux Privilege
 
-## OverView
+* ## [OverView](#overview)
+
+* ## [How to install](#install)
+
+* ## [How it work](#work)
+
+* ## [Privilege Escalation with Sudo](#sudo)
+
+* ## [Hijacking Tmux Sessions](#hijacking)
+
+## OverView <a name="overview"></a>
 
 `Tmux` is an open-source *terminal multiplexer* for `Unix-like` operating systems. It allows multiple terminal sessions to be accessed simultaneously in a single window. It is useful for running more than one command-line program at the same time. It can also be used to detach processes from their controlling terminals, allowing remote sessions to remain active without being visible
 
 `Tmux` includes most features of GNU Screen. It allows users to start a terminal session with clients that are not bound to a specific physical or virtual console; multiple terminal sessions can be created within a single terminal session and then freely rebound from one virtual console to another, and each session can have several connected clients.
 
-## How to install `Tmux`
-
+## How to install `Tmux` <a name="install"></a>
+* Installing Tmux on Ubuntu and Debian
 > sudo apt install tmux
 
-## How it works;
+* Installing Tmux on CentOS and Fedora
+> sudo yum install tmux
+
+* Installing Tmux on macOS 
+> brew install tmux
+
+## How it works <a name="work"></a>
 
 For detailed instructions we can use.
 > tmux -h
@@ -36,42 +52,80 @@ list available sessions:
 
 ## Tmux Privilege Escalation
 
-1. Privilege Escalation with `Sudo`
+### Privilege Escalation with `Sudo` <a name="sudo"></a>
 
-After gaining access to the victim machine check the permissions on the victim account.Found the victim's account to have access to tmux with `sudo` without a password.
+#### Set up:
+In Linux there is a configuration file for sudo privileges located at “/etc/sudoers”.
+This is the file that administrators allocate system permissions to
+used in the system. When the user wants to run administrator privileges
+through the "sudo" command, through the "/etc/sudoers" file, the OS will know that the user has the right
+run that command or not
+
+Open the file `/etc/sudoers` add the following at the end of the file.
+> \<user_name> ALL=(root) NOPASSWD: /usr/bin/tmux
+  
+  ![image](https://user-images.githubusercontent.com/63194321/147391149-d7c315b8-209f-49b2-89df-9158e6c0f96f.png)
+
+#### Deploy
+
+**Step1:** Find a way to get into the operating system (SSH, RCE,..)
+
+**Step2:** After gaining access to the victim machine check the permissions on the victim account.Found the victim's account to have access to tmux with `sudo` without a password.
 > sudo -l
 
-![image](https://user-images.githubusercontent.com/63194321/147386330-f6b9b3e6-3871-43dd-9f23-7a497f7d4606.png)
+![image](https://user-images.githubusercontent.com/63194321/147391232-b07f1f08-3731-408f-819c-379749f829f6.png)
 
-As a user with sudo privileges we can use this to escalate privileges.
+**Step3:** After defining a user with `sudo` privileges, it can be easily elevated with `tmux`.
 > sudo tmux
 
-![image](https://user-images.githubusercontent.com/63194321/147386349-91c10c4e-f3e3-4b60-820d-0f4681bb4f58.png)
+![image](https://user-images.githubusercontent.com/63194321/147391314-6215611d-120c-4973-8b27-bc0bb90d4f7e.png)
 
-2. Tmux privilege escalation abusing send-keys
+### Hijacking Tmux Sessions <a name="hijacking"></a>
+#### Set Up
 
-A script run as user in tmux can under some circumstances execute commands as root.
+* Create a forder `test/test1` at `tmp`
+> mkdir /tmp/test
+> touch /tmp/test/test1
 
-There's a tmux feature to send keystrokes to a pane.
+* User `root` uses `tmux` to execute run at folder `/tmp/test/test1`.
+> tmux -S /tmp/test/test1
 
-`tmux send-keys -t $pane 'C-c'` for example sends SIGINT to whatever is running in pane $pane.
+(*The -S flag can be used to specify an alternative path to the server socket used for the shell session. If is specified, the default socket directory (which is normally /tmp/tmux-[user id]) is not used. If a non-privileged user has access to the socket, they could attach to the running session, thus gaining the same privileges as the user running the Tmux shell.*)
 
-If in the `tmux` compartment there is a user running as the `root` user we can take advantage of this to perform escalation.
+![image](https://user-images.githubusercontent.com/63194321/147391758-d25abe66-dcba-49c5-9571-9c689a71f361.png)
 
-![image](https://user-images.githubusercontent.com/63194321/147386959-3e45e22c-f1f3-4c5e-85ab-7ae5b4ee2eef.png)
+* Make permission for the directory `/tmp/test/test1` so that everyone has full editing permission.
+> chmod 777 /tmp/test/test1
 
-Next create a script with the following content:
-> #!/bin/sh  
-for pane in `tmux list-panes | grep -Po '^\d'`; do  
-tmux send-keys -t $pane 'whoami' Enter ;  
-done;
+![image](https://user-images.githubusercontent.com/63194321/147391950-23d9de65-1abc-4d91-9b62-49142dd68260.png)
 
-![image](https://user-images.githubusercontent.com/63194321/147386999-ff170cc1-3657-4cfc-a553-c6e3730d94e1.png)
+#### Deploy
 
-Run the script on a user without `root` privileges.
+**Step1:** Through SSH or RCE we access in the OS.
 
-![image](https://user-images.githubusercontent.com/63194321/147387067-bd469cde-7dad-4eb2-aa3e-f00ce170f1cd.png)
+**Step2:** After accessing in `os` we proceed to check the running processes of the system.
+> ps -ef
 
+![image](https://user-images.githubusercontent.com/63194321/147391860-2b81bb86-5474-4bbc-b5ce-aa9bf71f7d12.png)
+
+**Step3:** Check if there is a process running `Tmux`?
+> ps -ef | grep tmux
+
+![image](https://user-images.githubusercontent.com/63194321/147391886-6f4a16ae-7728-45d2-afdf-6ffe8c885862.png)
+
+**Step4:** We see that there is a process running `tmux -S /tmp/test/test1` with the root user.
+
+**Step5:** Check the permissions of the directory `/tmp/test/test1`.
+> ls -l /tcp/test/test1
+
+![image](https://user-images.githubusercontent.com/63194321/147391958-d82df6ed-40b7-4527-8a15-936bf718e608.png)
+
+Looking at the file permissions, all users have read and write permissions on the directory.
+
+**Step6:** Looking at the file permissions, all users have read and write permissions on the directory.
+> tmux -S /tmp/test/test1 
+
+![image](https://user-images.githubusercontent.com/63194321/147392044-fcc26050-6558-400d-94cc-13ebb73bf509.png)
 
 
 ### Reference 
@@ -81,6 +135,8 @@ Run the script on a user without `root` privileges.
 [https://www.joyk.com/dig/detail/1562877072279933](https://www.joyk.com/dig/detail/1562877072279933)
 
 [https://www.hackingarticles.in/linux-for-pentester-tmux-privilege-escalation/](https://www.hackingarticles.in/linux-for-pentester-tmux-privilege-escalation/)
+
+[https://steflan-security.com/linux-privilege-escalation-exploiting-shell-sessions/](https://steflan-security.com/linux-privilege-escalation-exploiting-shell-sessions/)
 
 
 
