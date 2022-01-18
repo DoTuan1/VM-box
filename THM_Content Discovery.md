@@ -118,7 +118,8 @@ Use `ffuf` to find hidden paths.
 ![image](https://user-images.githubusercontent.com/63194321/149961701-30c368dd-faaa-4834-9a00-45e53294862d.png)
 
 ## End! 
-  
+ 
+#### Link to the TryHackMe lab: [https://tryhackme.com/room/contentdiscovery](https://tryhackme.com/room/contentdiscovery)
 
 
 
